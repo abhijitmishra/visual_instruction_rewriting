@@ -1,0 +1,142 @@
+---
+title: "Draw_Plot"
+output: html_document
+date: "2025-02-15"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(ggplot2)
+library(dplyr)
+library(readr)
+
+train_file_path <- "train_with_intents.tsv"
+train_df <- read_tsv(train_file_path) %>%
+  count(intent) %>%
+  mutate(intent = case_when(
+    intent %in% c("StartVideoCall", "MakeCall", "MakePhoneCall") ~ "MakePhoneCall",
+    n < 301 ~ "Others",
+    TRUE ~ intent)) %>%
+  group_by(intent) %>%
+  summarise(n = sum(n)) %>%
+  ungroup() %>%
+  mutate(dataset = "Train")
+
+test_file_path <- "test_with_intents.tsv"
+test_df <- read_tsv(test_file_path) %>%
+  count(intent) %>%
+  mutate(intent = case_when(
+    intent %in% c("StartVideoCall", "MakeCall", "MakePhoneCall") ~ "MakePhoneCall",
+    n < 71 ~ "Others",
+    TRUE ~ intent)) %>%
+  group_by(intent) %>%
+  summarise(n = sum(n)) %>%
+  ungroup() %>%
+  mutate(dataset = "Test")
+
+intent_counts <- bind_rows(train_df, test_df)
+
+intent_order <- intent_counts %>%
+  group_by(intent) %>%
+  summarise(total_n = sum(n)) %>%
+  arrange(total_n) %>%
+  pull(intent)
+
+intent_order <- c("Others", intent_order[intent_order != "Others"])
+intent_counts$intent <- factor(intent_counts$intent, levels = intent_order)
+
+ggplot(intent_counts, aes(x = n, y = intent, fill = dataset)) +
+  geom_bar(stat = "identity", position = "identity", alpha = 0.6) +
+  theme_minimal() +
+  scale_x_continuous(position = "top") +
+  scale_fill_manual(values = c("Train" = "skyblue", "Test" = "orange")) +
+  labs(x = NULL, y = NULL) + 
+  theme(
+    axis.title = element_blank(),  
+    axis.text.x = element_text(size = 12, face = "bold"), 
+    axis.text.y = element_text(size = 12, face = "bold"),  
+    legend.position = c(0.85, 0.15), 
+    legend.text = element_text(size = 12, face = "bold"), 
+    legend.title = element_blank(), 
+    legend.background = element_rect(fill = "white", color = "black"), 
+    legend.key.size = unit(0.5, "cm")  
+  )
+
+
+```
+
+```{r fig.height=14, fig.width=12}
+# Load required libraries
+library(ggplot2)
+library(dplyr)
+library(tidyr)  # Load tidyr for pivot_longer()
+
+# Data preparation: Combine F1 scores from all systems
+data <- data.frame(
+  Intent = c("AnswerGeneralQuestion", "CreateCalendarEvent", "FindNearbyPlace", 
+             "FindPersonInfo", "GetDirections", "MakePhoneCall", "OpenApp", 
+             "Others", "SearchWeb", "SendEmail", "SendMessage", 
+             "SendTextMessage", "SetAlarm", "SetReminder", "StartNavigation"),
+  QwenBaseline = c(0.2522, 0.7268, 0.6233, 0.5400, 0.6169, 0.4741, 0.5394, 
+                   0.3882, 0.4462, 0.6520, 0.5451, 0.4643, 0.7805, 0.8589, 0.0328),
+  RevisionBaseline = c(0.2453, 0.6218, 0.7002, 0.4869, 0.7283, 0.8846, 0.8024, 
+                       0.3636, 0.5594, 0.8734, 0.3170, 0.7879, 0.6719, 0.8505, 0.6296),
+  RevisionWithCaption = c(0.3400, 0.7604, 0.7972, 0.6733, 0.8122, 0.9347, 0.8231, 
+                          0.6264, 0.6197, 0.8842, 0.6637, 0.9301, 0.9558, 0.9511, 0.7339)
+)
+
+# Reshape data for ggplot (long format)
+data_long <- data %>%
+  pivot_longer(cols = c("QwenBaseline", "RevisionBaseline", "RevisionWithCaption"),
+               names_to = "Model", values_to = "F1Score")
+
+
+# Specify the desired order for the y-axis (Intent), reversed
+data$Intent <- factor(data$Intent, levels = rev(c(
+  "AnswerGeneralQuestion", "SearchWeb", "FindNearbyPlace", "GetDirections", 
+  "SetReminder", "SendMessage", "SendEmail", "SendTextMessage", "OpenApp", 
+  "CreateCalendarEvent", "FindPersonInfo", "SetAlarm", "StartNavigation", 
+  "MakePhoneCall", "Others"
+)))
+
+# Reshape data for ggplot (long format)
+data_long <- data %>%
+  pivot_longer(cols = c("QwenBaseline", "RevisionBaseline", "RevisionWithCaption"),
+               names_to = "Model", values_to = "F1Score") %>%
+  mutate(Model = case_when(
+    Model == "QwenBaseline" ~ "BL1b: Qwen2-VL-7B (vanilla)",
+    Model == "RevisionBaseline" ~ "ReVision-BL",
+    Model == "RevisionWithCaption" ~ "ReVision-Metadata (Self_Caption+EasyOCR)",
+    TRUE ~ Model
+  ))
+
+# Plot with renamed systems and reversed bar order
+ggplot(data_long, aes(y = Intent, x = F1Score, fill = Model)) +
+  geom_bar(stat = "identity", 
+           position = position_dodge2(preserve = "single", reverse = TRUE), # Reverse the order within groups
+           width = 0.8, alpha = 0.9) +
+  scale_fill_manual(values = c(
+    "BL1b: Qwen2-VL-7B (vanilla)" = "DarkBlue", 
+    "ReVision-BL" = "DarkOrange", 
+    "ReVision-Metadata (Self_Caption+EasyOCR)" = "DarkGreen"
+  )) +
+  theme_minimal() +
+  labs(x = NULL, y = NULL, fill = "Model") + 
+  theme(
+    axis.text.x = element_text(size = 20, face = "bold"),
+    axis.text.y = element_text(size = 15, face = "bold", margin = margin(t = 5, b = 5)),
+    axis.title.x = element_text(size = 14, face = "bold"),
+    legend.text = element_text(size = 12, face = "bold"),
+    legend.title = element_text(size = 14, face = "bold"),
+    legend.position = "bottom"
+  )
+
+
+
+
+
+```
