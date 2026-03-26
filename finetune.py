@@ -1,5 +1,5 @@
 from model import ReVisionProcessor, ReVisionForConditionalGeneration
-from datautils import RevisionRewriteDataset, SyntheticRewriteDataset, CombinedDataset
+from datautils import RevisionRewriteDataset
 from args import get_args_fine_tuning
 from transformers import (
     TrainingArguments,
