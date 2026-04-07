@@ -54,6 +54,25 @@ def collate_fn(self, examples, to_bf16=True):
     
     return tokens
 
+def inference_collate_fn(processor, examples):
+    images = [example[0].convert("RGB") for example in examples]
+    texts = [example[1].replace("\n", "") for example in examples]
+
+    tokens = processor(
+        text=texts,
+        images=images,
+        return_tensors="pt",
+        padding="longest",
+        tokenize_newline_separately=False,
+    )
+
+    return tokens
+
+def clean_prediction(text):
+    parts = str(text).split("assistant")
+    text = parts[-1] if len(parts) > 1 else text
+    return " ".join(text.split())
+
 def main(args):
     set_seed(42)
     
@@ -69,7 +88,8 @@ def main(args):
     	test_dataset,
     	batch_size=args.batch_size,
     	shuffle=False,
-    	collate_fn=test_dataset.collate_fn  # Use the dataset's collate function
+        # NOTE: Using a separate inference collate function to avoid including labels during generation
+    	collate_fn=lambda x: inference_collate_fn(processor, x) 
 	)
 	
 	
@@ -86,7 +106,8 @@ def main(args):
 
     # Load the ground truth data
     test_df = test_dataset.dataset.drop(columns = ["Unnamed: 0"])
-    test_df["Predicted"] = pd.Series(generated_texts)
+    cleaned_outputs = [clean_prediction(x) for x in generated_texts]
+    test_df["Predicted"] = pd.Series(cleaned_outputs)
 
     # Save predictions to a new TSV file
     test_df.to_csv("test_predicted.tsv", sep='\t', index=False)

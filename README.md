@@ -47,3 +47,22 @@ Various inference scripts are provided under `test_*.py` and `evaluate.py`. For 
 
 The code is released under Apache License 2.0 but the data is not. The image portion of the dataset comes from existing resources. To serve the research community better, we uploaded images.zip for better reproducing our work in research community. It must not be used for any other purposes. The use of these images must comply with the respective licenses attached with the image sources. This may be taken down at any time when requested by the original owner or owners of the referenced images.
 
+## Community Contributions
+
+### Evaluation Pipeline Fix (Ankesh Ansh et al.)
+
+We identified an issue in the evaluation pipeline where labels were being passed during inference via the data collator, leading to unintended formatting artifacts in generated outputs.
+
+#### Key Improvements
+- Removed label (`suffix`) usage during inference
+- Cleaned conversational artifacts (e.g., "system", "user", "assistant")
+- Ensured proper formatting for decoder-only generation
+
+#### Results
+
+| Setting | ROUGE-L | BLEU | METEOR |
+|--------|--------|------|--------|
+| Original Evaluation Pipeline | 55.4 | 27.7 | 61.4 |
+| Fixed Evaluation Pipeline | **79.8** | **68.6** | **82.2** |
+
+For more details, see PR #6.
